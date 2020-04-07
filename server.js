@@ -43,7 +43,18 @@ function locationHandeller(request,response) {
               Location.current = locationData;
               weatherHandeler();
               trailsHandeler();
-              response.status(200).json(locationData);
+              const SQL = 'INSERT INTO data(name,location,weather,trails) VALUES ($1,$2,$3,$4) RETURNING *';
+              const safeValues = [city,Location.current,JSON.stringify(Weather.all),JSON.stringify(Trail.avelable)];
+              client
+                .query(SQL, safeValues)
+                .then((results) => {
+                    response.status(200).json(locationData);
+                //   res.status(200).json(results.rows);
+                })
+                .catch((err) => {
+                  res.status(500).send(err);
+                });
+              
             })
             .catch((err) => errorHandeler(err, request, response));
           }
@@ -62,6 +73,7 @@ function locationHandeller(request,response) {
       .then((weathres) => {
         // response.status(200).json(weathres.body);
         const weatherData = weathres.body;
+        
           
         Weather.all = weatherData.data.map((day) =>{
           return new Weather(day);
@@ -130,8 +142,8 @@ function locationHandeller(request,response) {
 app.get('/add', (req, res) => {
     weatherHandeler();
     trailsHandeler();
-    console.log(Weather.all);
-    console.log(Trail.avelable);
+    // console.log(Weather.all);
+    // console.log(Trail.avelable);
 //   let name = req.query.name;
 //   let role = req.query.role;
   const SQL = 'INSERT INTO data(name,location,weather,trails) VALUES ($1,$2,$3,$4) RETURNING *';
