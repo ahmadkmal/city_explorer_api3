@@ -6,8 +6,13 @@ const pg = require('pg');
 const superagent = require('superagent');
 const PORT = process.env.PORT || 4000;
 const app = express();
+const weatherHandeler = require('./modules/weatherHandeler');
+const trailsHandeler = require('./modules/trailsHandeler');
+const moviesHandeler = require('./modules/themovies');
+const yelpHandeler = require('./modules/yelp');
 // make a connection to the psql using the provided link
 const client = new pg.Client(process.env.DATABASE_URL);
+
 
 
 client.on('error', (err) => {
@@ -20,6 +25,10 @@ app.get('/location',locationHandeller);
 app.get('/weather',weatherHandeler);
 
 app.get('/trails',trailsHandeler);
+app.get('/movies',moviesHandeler);
+app.get('/yelp',yelpHandeler);
+
+
 
 var city ;
 function locationHandeller(request,response) {
@@ -32,8 +41,8 @@ function locationHandeller(request,response) {
       .then((results) => {
           if(results.rows.length){
             Location.current =results.rows[0].location;
-            weatherHandeler();
-            trailsHandeler();
+            // weatherHandeler();
+            // trailsHandeler();
             response.status(200).json(results.rows[0].location);
           }else{
             superagent(`https://eu1.locationiq.com/v1/search.php?key=${process.env.geoCode}&q=${city}&format=json`)
@@ -41,10 +50,11 @@ function locationHandeller(request,response) {
               const geoData = res.body;
               const locationData = new Location(city, geoData);
               Location.current = locationData;
-              weatherHandeler();
-              trailsHandeler();
-              const SQL = 'INSERT INTO data(name,location,weather,trails) VALUES ($1,$2,$3,$4) RETURNING *';
-              const safeValues = [city,Location.current,JSON.stringify(Weather.all),JSON.stringify(Trail.avelable)];
+              // weatherHandeler();
+              // trailsHandeler();
+              // console.log(Location.current);
+              const SQL = 'INSERT INTO data(name,location) VALUES ($1,$2) RETURNING *';
+              const safeValues = [city,Location.current];
               client
                 .query(SQL, safeValues)
                 .then((results) => {
@@ -52,7 +62,7 @@ function locationHandeller(request,response) {
                 //   res.status(200).json(results.rows);
                 })
                 .catch((err) => {
-                  res.status(500).send(err);
+                  response.status(500).send(err);
                 });
               
             })
@@ -66,66 +76,15 @@ function locationHandeller(request,response) {
     //  console.log(res.rows);
 
   }
-  function weatherHandeler(){
-    // response.status(200).send
-    // console.log(request.query.search_query);
-    superagent(`https://api.weatherbit.io/v2.0/forecast/daily?city=${city}&key=${process.env.weatherCode}`)
-      .then((weathres) => {
-        // response.status(200).json(weathres.body);
-        const weatherData = weathres.body;
-        
-          
-        Weather.all = weatherData.data.map((day) =>{
-          return new Weather(day);
-        });
-        // console.log(Weather.all);
-        //         weatherData.data.forEach(element => {
-        //     var weather = new Weather(element);
-        //     Weather.all.push(weather);
-        //   });
-        // response.status(200).json(Weather.all);
-      })
-      .catch((err) => errorHandeler(err, request, response));
-  }
-  function trailsHandeler(){
-    // response.status(200).send
-    // console.log(request.query.search_query);
-    superagent(`https://www.hikingproject.com/data/get-trails?lat=${Location.current.latitude}&lon=${Location.current.longitude}&maxDistance=400&key=${process.env.haikCode}`)
-      .then((trailsres) => {
-      //   response.status(200).json(trailsres.body);
-        //   const weatherData = weathres.body;
-           
-        Trail.avelable = trailsres.body.trails.map((trail =>{
-          return new Trail(trail);
-        }));
-        // console.log(Trail.avelable);
-        //   weatherData.data.forEach(element => {
-        //     var weather = new Weather(element);
-        //     Weather.all.push(weather);
-        //   });
-        // response.status(200).json(Trail.avelable);
-      })
-      .catch((err) => errorHandeler(err, request, response));
-  }
+
+  
   function notFoundHandeler(request,response){
     response.status(404).send('error 404 page not found');
   }
   function errorHandeler(error,request,response){
     response.status(500).send(`Sorry, something went wrong`);
   }
-  function Trail(obj){
-    this.name =obj.name;
-    this.location =obj.location;
-    this.length =obj.length;
-    this.stars =obj.stars;
-    this.star_votes =obj.starVotes;
-    this.summary =obj.summary;
-    this.trail_url =obj.url;
-    this.conditions =obj.conditionStatus;
-    this.condition_date =obj.conditionDate.slice(0,10);
-    this.condition_time =obj.conditionDate.slice(10);
-  }
-  Trail.avelable ;
+  
   function Location(city,geoData){
     this.search_query = city;
     this.formatted_query =geoData[0].display_name;
@@ -133,11 +92,7 @@ function locationHandeller(request,response) {
     this.longitude = geoData[0].lon;
   }
   Location.current ;
-  function Weather(obj){
-    this.forecast=obj.weather.description;
-    this.time = new Date(obj.valid_date).toDateString();
-  }
-  Weather.all =[];
+  
 
 app.get('/add', (req, res) => {
     weatherHandeler();
